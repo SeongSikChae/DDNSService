@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Biz.Bizadm.Serilog.Enrichers.Caller" Version="1.0.0" />
+		<PackageReference Include="Biz.Bizadm.Serilog.Sinks.File.Extensions" Version="1.0.0" />
+		<PackageReference Include="Biz.Bizadm.System.Configuration.Extensions" Version="1.0.1" />
+		<PackageReference Include="Biz.Bizadm.System.Threading.Extensions" Version="1.0.0" />
+		<PackageReference Include="CommandLineParser" Version="2.9.1" />
+		<PackageReference Include="Google.Protobuf" Version="3.35.1" />
+		<PackageReference Include="Grpc.Net.Client" Version="2.80.0" />
+		<PackageReference Include="Grpc.Tools" Version="2.82.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.9" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.9" />
+		<PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+		<PackageReference Include="YamlDotNet" Version="18.1.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Protobuf Include="Protos\**\*.proto" GrpcServices="Both" />
+	</ItemGroup>
+
+</Project>

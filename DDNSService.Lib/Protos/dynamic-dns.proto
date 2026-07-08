@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option csharp_namespace = "DDNSService.Lib.Protos";
+
+message UpdateRequestProto {
+  string id = 1;
+  string name = 2;
+}
+
+message UpdateResponseProto {
+  bool error = 1;
+  string message = 2;
+}
+
+service DynamicDnsService {
+  rpc Update(UpdateRequestProto) returns (UpdateResponseProto);
+}

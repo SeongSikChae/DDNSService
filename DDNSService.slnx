@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="DDNSService.Client/DDNSService.Client.csproj" />
+  <Project Path="DDNSService.Lib/DDNSService.Lib.csproj" Id="239035fc-9dae-4cf1-8a57-71af8c6d043f" />
+  <Project Path="DDNSService.Server/DDNSService.Server.csproj" />
+</Solution>
