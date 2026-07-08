@@ -34,25 +34,8 @@ namespace DDNSService.Server.Services
                 case System.Net.Sockets.AddressFamily.InterNetwork:
                     logger.Information($"REQUEST Name: '{name}', Address: '{address}', Type: A");
 
-                    DnsARecordCollection aRecords = dnsZone.GetDnsARecords();
-                    if (await aRecords.ExistsAsync(name, context.CancellationToken))
                     {
-                        DnsARecordResource aRecord = await aRecords.GetAsync(name, context.CancellationToken);
-                        DnsARecordData data = aRecord.Data;
-                        data.DnsARecords.Clear();
-                        data.DnsARecords.Add(new Azure.ResourceManager.Dns.Models.DnsARecordInfo
-                        {
-                            IPv4Address = address
-                        });
-                        data.TtlInSeconds = 3600;
-                        if (data.Metadata.TryGetValue("LastUpdateTime", out string? _))
-                            data.Metadata["LastUpdateTime"] = $"{DateTime.Now.ToMilliseconds()}";
-                        else
-                            data.Metadata.Add("LastUpdateTime", $"{DateTime.Now.ToMilliseconds()}");
-                        await aRecord.UpdateAsync(data, cancellationToken: context.CancellationToken);
-                    }
-                    else
-                    {
+                        DnsARecordCollection aRecords = dnsZone.GetDnsARecords();
                         DnsARecordData data = new DnsARecordData
                         {
                             TtlInSeconds = 3600
@@ -76,25 +59,8 @@ namespace DDNSService.Server.Services
                 case System.Net.Sockets.AddressFamily.InterNetworkV6:
                     logger.Information($"REQUEST Name: '{name}', Address: '{address}', Type: AAAA");
 
-                    DnsAaaaRecordCollection aaaaRecords = dnsZone.GetDnsAaaaRecords();
-                    if (await aaaaRecords.ExistsAsync(name, context.CancellationToken))
                     {
-                        DnsAaaaRecordResource aaaaRecord = await aaaaRecords.GetAsync(name, context.CancellationToken);
-                        DnsAaaaRecordData data = aaaaRecord.Data;
-                        data.DnsAaaaRecords.Clear();
-                        data.DnsAaaaRecords.Add(new Azure.ResourceManager.Dns.Models.DnsAaaaRecordInfo
-                        {
-                            IPv6Address = address
-                        });
-                        data.TtlInSeconds = 3600;
-                        if (data.Metadata.TryGetValue("LastUpdateTime", out string? _))
-                            data.Metadata["LastUpdateTime"] = $"{DateTime.Now.ToMilliseconds()}";
-                        else
-                            data.Metadata.Add("LastUpdateTime", $"{DateTime.Now.ToMilliseconds()}");
-                        await aaaaRecord.UpdateAsync(data, cancellationToken: context.CancellationToken);
-                    } 
-                    else
-                    {
+                        DnsAaaaRecordCollection aaaaRecords = dnsZone.GetDnsAaaaRecords();
                         DnsAaaaRecordData data = new DnsAaaaRecordData
                         {
                             TtlInSeconds = 3600
