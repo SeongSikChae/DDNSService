@@ -30,7 +30,7 @@ namespace DDNSService.Client.Services
             }
             finally
             {
-                taskScheduler.AddTask(DynamicDnsSyncTask.TASK_ID, task, new Quartz.CronExpression("0 0/30 * * * ?"));
+                taskScheduler.AddTask(DynamicDnsSyncTask.TASK_ID, task, new Quartz.CronExpression("0 0/15 * * * ?"));
             }
             
         }
