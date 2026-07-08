@@ -85,3 +85,141 @@ dotnet build DDNSService.slnx
 - [DDNSService.Lib README](DDNSService.Lib/README.md)
 - [DDNSService.Server README](DDNSService.Server/ReadMe.md)
 - [DDNSService.Client README](DDNSService.Client/ReadMe.md)
+
+## 동작 예시
+
+아래는 서버와 클라이언트를 구동하는 예시입니다. 실제 값(도메인, 인증서 경로, Azure 자격 증명 등)은 환경에 맞게 교체하세요.
+
+### DDNSService.Client
+
+클라이언트 설정 파일 예시 (`client.yaml`):
+
+```yaml
+ContentRootPath: /opt/ddns/client
+Address: https://ddns.example.com:5001
+ClientCertificate: certs/client.pfx
+ClientCertificatePassword: your-client-cert-password
+```
+
+실행:
+
+```bash
+DDNSService.Client --config /opt/ddns/client/client.yaml --log /var/log/ddns/client
+```
+
+동작 흐름:
+
+1. `client.pfx` 인증서를 로드하고, 인증서의 Email Name → `Id`, Simple Name → `Name`으로 요청을 구성합니다.
+2. 시작 즉시 서버에 `Update`를 1회 호출한 뒤, 30분마다 반복 호출합니다.
+3. 결과 로그 예시:
+
+```text
+[INF] 'home' - 203.0.113.10 에 대해 A Record가 반영되었습니다.
+```
+
+### DDNSService.Server
+
+서버 설정 파일 예시 (`server.yaml`):
+
+```yaml
+ContentRootPath: /opt/ddns/server
+Port: 5001
+TenantId: 00000000-0000-0000-0000-000000000000
+ClientId: 11111111-1111-1111-1111-111111111111
+ClientSecret: your-azure-client-secret
+ResourceId: /subscriptions/22222222-2222-2222-2222-222222222222
+ResourceGroupName: my-dns-rg
+DnsZoneName: example.com
+ServerCertificate: certs/server.pfx
+ServerCertificatePassword: your-server-cert-password
+CertificateChain: Intermediate CA, Root CA
+IncludeCipherSuites: TLS_AES_256_GCM_SHA384, TLS_AES_128_GCM_SHA256
+```
+
+실행:
+
+```bash
+DDNSService.Server --config /opt/ddns/server/server.yaml --log /var/log/ddns/server
+```
+
+동작 흐름:
+
+1. 지정한 포트에서 mTLS(클라이언트 인증서 필수) 기반 gRPC 요청을 수신합니다.
+2. 클라이언트의 `Update` 요청을 받으면 **연결의 원격 IP**를 감지해 Azure DNS에 A/AAAA 레코드를 반영합니다.
+3. 30분마다 만료 레코드(마지막 갱신 후 30분 이상 경과)를 정리합니다.
+4. 결과 로그 예시:
+
+```text
+[INF] REQUEST Name: 'home', Address: '203.0.113.10', Type: A
+[INF] Updated. Name: 'home', Address: '203.0.113.10', Type: A
+[INF] A Record : 'office' Expired.
+```
+
+## DDNS 검증 방법
+
+클라이언트 실행 후 DNS 레코드가 정상적으로 반영되었는지 아래 방법으로 확인할 수 있습니다. (예시 도메인: `home.example.com`)
+
+### 1. DNS 조회로 확인
+
+DNS 서버에 실제 반영된 레코드를 조회합니다. 클라이언트가 접속한 공인 IP와 일치하는지 확인합니다.
+
+```bash
+# nslookup (Windows/Linux 공통) - A 레코드(IPv4)
+nslookup -type=A home.example.com
+
+# nslookup - AAAA 레코드(IPv6)
+nslookup -type=AAAA home.example.com
+
+# dig (Linux/macOS)
+dig +short A home.example.com
+dig +short AAAA home.example.com
+```
+
+> DNS 캐시나 TTL(3600초)의 영향으로 즉시 반영되지 않을 수 있습니다. 권한 있는 네임서버로 직접 질의하면 캐시 영향을 줄일 수 있습니다.
+>
+> ```bash
+> dig +short A home.example.com @ns1-XX.azure-dns.com
+> ```
+
+### 2. 로그로 확인
+
+- **클라이언트 로그** (`DDNSService.Client.log`): 서버 응답 메시지로 반영 성공 여부를 확인합니다.
+
+```text
+[INF] 'home' - 203.0.113.10 에 대해 A Record가 반영되었습니다.
+```
+
+- **서버 로그** (`DDNSService.Server.log`): 요청 수신 및 레코드 반영 로그를 확인합니다.
+
+```text
+[INF] REQUEST Name: 'home', Address: '203.0.113.10', Type: A
+[INF] Updated. Name: 'home', Address: '203.0.113.10', Type: A
+```
+
+### 3. Azure에서 직접 확인
+
+Azure Portal 또는 Azure CLI로 DNS Zone의 레코드를 직접 조회합니다. 클라이언트의 IP 및 `LastUpdateTime` 메타데이터가 갱신되는지 확인합니다.
+
+```bash
+# A 레코드 조회
+az network dns record-set a show \
+  --resource-group my-dns-rg \
+  --zone-name example.com \
+  --name home
+
+# 존의 모든 레코드 목록
+az network dns record-set list \
+  --resource-group my-dns-rg \
+  --zone-name example.com \
+  --output table
+```
+
+### 4. 만료 동작 확인
+
+클라이언트를 중지하면 더 이상 갱신 요청이 발생하지 않습니다. 마지막 갱신 후 **30분 이상 경과**하면 서버의 정리 태스크가 해당 레코드를 삭제하며, 서버 로그에 다음과 같이 기록됩니다.
+
+```text
+[INF] A Record : 'home' Expired.
+```
+
+이후 DNS 조회 시 레코드가 조회되지 않으면 만료 정리가 정상 동작한 것입니다.
