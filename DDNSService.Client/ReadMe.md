@@ -31,7 +31,7 @@
 ### 2. 스케줄링 (`ClientHostedService`)
 
 - 서비스가 시작되면 동기화 태스크를 **즉시 1회 실행**합니다.
-- 실행 결과와 관계없이, 이후 Quartz Cron 표현식 `0 0/30 * * * ?`에 따라 **30분마다** 반복 실행하도록 스케줄러(`ITaskScheduler`)에 등록합니다.
+- 실행 결과와 관계없이, 이후 Quartz Cron 표현식 `0 0/15 * * * ?`에 따라 **15분마다** 반복 실행하도록 스케줄러(`ITaskScheduler`)에 등록합니다.
 - 서비스 종료 시 태스크를 제거하고 스케줄러가 정리될 때까지 대기합니다.
 
 ## 실행 방법
@@ -100,7 +100,7 @@ DDNSService.Client/
 ├── Program.cs                       # 진입점: 인수 파싱, 인증서/gRPC 채널/DI 구성
 ├── Configuration.cs                 # YAML 설정 모델 및 유효성 속성
 ├── Services/
-│   └── ClientHostedService.cs       # 즉시 1회 실행 후 30분 주기 스케줄 등록/해제
+│   └── ClientHostedService.cs       # 즉시 1회 실행 후 15분 주기 스케줄 등록/해제
 ├── Tasks/
 │   └── DynamicDnsSyncTask.cs        # 인증서 정보로 gRPC Update 호출
 └── ReadMe.md
