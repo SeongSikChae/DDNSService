@@ -55,7 +55,7 @@ service DynamicDnsService {
 
 ### 서비스
 
-- `DynamicDnsService.Update` — 클라이언트가 전달한 이름/식별자를 바탕으로 서버가 호출자의 원격 IP를 Azure DNS 레코드에 반영합니다.
+- `DynamicDnsService.Update` — 클라이언트가 전달한 이름/식별자를 바탕으로 서버가 호출자의 원격 IP를 Azure DNS 레코드에 반영합니다. 갱신 시각(`LastUpdateTime`)과 만료 기준(`Expiration`, 초 단위)은 proto가 아닌 Azure DNS 레코드 메타데이터로 관리되며, DNS TTL과는 별개입니다.
 
 ### 코드 생성
 

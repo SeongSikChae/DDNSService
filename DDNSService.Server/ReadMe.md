@@ -28,20 +28,30 @@
    - IPv4 → **A 레코드** 생성/갱신
    - IPv6 → **AAAA 레코드** 생성/갱신
 4. A/AAAA 레코드를 생성 또는 갱신합니다.
-   - **신규 레코드**: TTL 3600초를 설정합니다.
+   - **신규 레코드**: DNS TTL **300초**를 설정합니다.
    - **기존 레코드**: 기존 TTL은 유지하고 IP 주소만 갱신합니다.
-   - `LastUpdateTime` 메타데이터에 갱신 시각(밀리초)을 기록합니다.
+   - `LastUpdateTime` 메타데이터에 갱신 시각(Unix 밀리초, 로컬 기준)을 기록합니다.
+   - **신규 레코드**에 한해 `Expiration` 메타데이터에 만료 기준 시간(초) **3600**을 설정합니다. 기존 레코드의 `Expiration` 값은 유지합니다.
 5. 처리 결과를 `UpdateResponseProto`(`error`, `message`)로 응답
+
+> DNS **TTL**(캐시 유효 시간)과 **Expiration**(서버 만료 판정 기준)은 별도로 관리됩니다. TTL은 DNS 조회 캐시용이며, 레코드 자동 삭제는 `Expiration` 메타데이터를 기준으로 합니다.
 
 > 클라이언트가 별도로 IP를 보내지 않아도, 서버가 **연결의 실제 원격 IP**를 사용하는 점이 특징입니다.
 
 ### 2. 만료 레코드 정리 (`RecordExpirationTask`)
 
 - Quartz Cron 표현식 `0 0/30 * * * ?`에 따라 **30분마다** 실행됩니다.
-- DNS Zone의 모든 A/AAAA 레코드를 순회하며 `LastUpdateTime` 메타데이터를 확인합니다.
-- `LastUpdateTime` + 레코드 **TTL**이 현재 시각을 지난 레코드는 삭제하여, 더 이상 갱신되지 않는(오프라인) 항목을 정리합니다.
-- TTL이 설정되지 않은 레코드는 만료 대상에서 제외됩니다.
+- DNS Zone의 모든 A/AAAA 레코드를 순회하며 `LastUpdateTime`, `Expiration` 메타데이터를 확인합니다.
+- `LastUpdateTime` + `Expiration`(초 단위)이 현재 시각을 지난 레코드는 삭제하여, 더 이상 갱신되지 않는(오프라인) 항목을 정리합니다.
+- `Expiration` 메타데이터가 없거나 파싱할 수 없는 레코드는 만료하지 않습니다.
 - 스케줄링은 `ServerHostedService`(IHostedService)가 `ITaskScheduler`에 태스크를 등록/해제하며 관리합니다.
+
+### 레코드 메타데이터 (`Consts`)
+
+| 키 | 설정 시점 | 설명 |
+| --- | --- | --- |
+| `LastUpdateTime` | 매 갱신 | 마지막 `Update` 호출 시각(Unix 밀리초) |
+| `Expiration` | 신규 레코드 생성 시 | 만료 판정 기준 시간(초). `LastUpdateTime` + `Expiration`이 지나면 `RecordExpirationTask`가 레코드를 삭제 |
 
 ## 실행 방법
 
@@ -128,7 +138,7 @@ DDNSService.Server/
 │   ├── DynamicDnsServer.cs          # gRPC Update 구현 (A/AAAA 레코드 반영)
 │   └── ServerHostedService.cs       # 만료 태스크 스케줄 등록/해제
 ├── Tasks/
-│   └── RecordExpirationTask.cs      # 30분마다 TTL 기준 만료 레코드 삭제
+│   └── RecordExpirationTask.cs      # 30분마다 Expiration 메타데이터 기준 만료 레코드 삭제
 └── ReadMe.md
 ```
 
