@@ -27,7 +27,10 @@
 3. **gRPC 연결의 원격 IP 주소**를 확인 (IPv4-mapped IPv6는 IPv4로 변환)
    - IPv4 → **A 레코드** 생성/갱신
    - IPv6 → **AAAA 레코드** 생성/갱신
-4. 레코드에 TTL 3600초를 설정하고, `LastUpdateTime` 메타데이터에 갱신 시각(밀리초)을 기록
+4. A/AAAA 레코드를 생성 또는 갱신합니다.
+   - **신규 레코드**: TTL 3600초를 설정합니다.
+   - **기존 레코드**: 기존 TTL은 유지하고 IP 주소만 갱신합니다.
+   - `LastUpdateTime` 메타데이터에 갱신 시각(밀리초)을 기록합니다.
 5. 처리 결과를 `UpdateResponseProto`(`error`, `message`)로 응답
 
 > 클라이언트가 별도로 IP를 보내지 않아도, 서버가 **연결의 실제 원격 IP**를 사용하는 점이 특징입니다.
@@ -36,7 +39,8 @@
 
 - Quartz Cron 표현식 `0 0/30 * * * ?`에 따라 **30분마다** 실행됩니다.
 - DNS Zone의 모든 A/AAAA 레코드를 순회하며 `LastUpdateTime` 메타데이터를 확인합니다.
-- 마지막 갱신 후 **30분 이상 경과**한 레코드는 삭제하여, 더 이상 갱신되지 않는(오프라인) 항목을 정리합니다.
+- `LastUpdateTime` + 레코드 **TTL**이 현재 시각을 지난 레코드는 삭제하여, 더 이상 갱신되지 않는(오프라인) 항목을 정리합니다.
+- TTL이 설정되지 않은 레코드는 만료 대상에서 제외됩니다.
 - 스케줄링은 `ServerHostedService`(IHostedService)가 `ITaskScheduler`에 태스크를 등록/해제하며 관리합니다.
 
 ## 실행 방법
@@ -119,11 +123,12 @@ gRPC 엔드포인트는 `app.MapGrpcService<DynamicDnsServer>()`로 매핑됩니
 DDNSService.Server/
 ├── Program.cs                       # 진입점: 인수 파싱, Kestrel/TLS/DI 구성, gRPC 매핑
 ├── Configuration.cs                 # YAML 설정 모델 및 유효성 속성
+├── Consts.cs                        # 공통 상수 (메타데이터 키 등)
 ├── Services/
 │   ├── DynamicDnsServer.cs          # gRPC Update 구현 (A/AAAA 레코드 반영)
 │   └── ServerHostedService.cs       # 만료 태스크 스케줄 등록/해제
 ├── Tasks/
-│   └── RecordExpirationTask.cs      # 30분마다 만료 레코드 삭제
+│   └── RecordExpirationTask.cs      # 30분마다 TTL 기준 만료 레코드 삭제
 └── ReadMe.md
 ```
 
