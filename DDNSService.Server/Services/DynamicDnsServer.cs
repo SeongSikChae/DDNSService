@@ -36,16 +36,26 @@ namespace DDNSService.Server.Services
 
                     {
                         DnsARecordCollection aRecords = dnsZone.GetDnsARecords();
-                        DnsARecordData data = new DnsARecordData
+                        DnsARecordData data;
+                        if (await aRecords.ExistsAsync(name, context.CancellationToken))
                         {
-                            TtlInSeconds = 3600
-                        };
+                            DnsARecordResource aRecord = await aRecords.GetAsync(name, context.CancellationToken);
+                            data = aRecord.Data;
+                            data.DnsARecords.Clear();
+                        }
+                        else
+                        {
+                            data = new DnsARecordData
+                            {
+                                TtlInSeconds = 3600
+                            };
+                        }
 
                         data.DnsARecords.Add(new Azure.ResourceManager.Dns.Models.DnsARecordInfo
                         {
                             IPv4Address = address
                         });
-                        data.Metadata.Add("LastUpdateTime", $"{DateTime.Now.ToMilliseconds()}");
+                        data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
                         await aRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, name, data, cancellationToken: context.CancellationToken);
                     }
 
@@ -61,16 +71,26 @@ namespace DDNSService.Server.Services
 
                     {
                         DnsAaaaRecordCollection aaaaRecords = dnsZone.GetDnsAaaaRecords();
-                        DnsAaaaRecordData data = new DnsAaaaRecordData
+                        DnsAaaaRecordData data;
+                        if (await aaaaRecords.ExistsAsync(name, context.CancellationToken))
                         {
-                            TtlInSeconds = 3600
-                        };
+                            DnsAaaaRecordResource aRecord = await aaaaRecords.GetAsync(name, context.CancellationToken);
+                            data = aRecord.Data;
+                            data.DnsAaaaRecords.Clear();
+                        }
+                        else
+                        {
+                            data = new DnsAaaaRecordData
+                            {
+                                TtlInSeconds = 3600
+                            };
+                        }
 
                         data.DnsAaaaRecords.Add(new Azure.ResourceManager.Dns.Models.DnsAaaaRecordInfo
                         {
                             IPv6Address = address
                         });
-                        data.Metadata.Add("LastUpdateTime", $"{DateTime.Now.ToMilliseconds()}");
+                        data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
                         await aaaaRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, name, data, cancellationToken: context.CancellationToken);
                     }
 
