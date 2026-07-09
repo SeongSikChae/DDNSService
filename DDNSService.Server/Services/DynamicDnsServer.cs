@@ -55,7 +55,10 @@ namespace DDNSService.Server.Services
                         {
                             IPv4Address = address
                         });
-                        data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
+                        if (data.Metadata.TryGetValue(Consts.LAST_UPDATE_TIME_KEY, out string? _))
+                            data.Metadata[Consts.LAST_UPDATE_TIME_KEY] = $"{DateTime.Now.ToMilliseconds()}";
+                        else
+                            data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
                         await aRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, name, data, cancellationToken: context.CancellationToken);
                     }
 
@@ -90,7 +93,10 @@ namespace DDNSService.Server.Services
                         {
                             IPv6Address = address
                         });
-                        data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
+                        if (data.Metadata.TryGetValue(Consts.LAST_UPDATE_TIME_KEY, out string? _))
+                            data.Metadata[Consts.LAST_UPDATE_TIME_KEY] = $"{DateTime.Now.ToMilliseconds()}";
+                        else
+                            data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
                         await aaaaRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, name, data, cancellationToken: context.CancellationToken);
                     }
 
