@@ -47,7 +47,7 @@ namespace DDNSService.Server.Services
                         {
                             data = new DnsARecordData
                             {
-                                TtlInSeconds = 3600
+                                TtlInSeconds = 300
                             };
                         }
 
@@ -59,6 +59,8 @@ namespace DDNSService.Server.Services
                             data.Metadata[Consts.LAST_UPDATE_TIME_KEY] = $"{DateTime.Now.ToMilliseconds()}";
                         else
                             data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
+                        if (!data.Metadata.TryGetValue(Consts.EXPIRATION_KEY, out string? _))
+                            data.Metadata.Add(Consts.EXPIRATION_KEY, "3600");
                         await aRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, name, data, cancellationToken: context.CancellationToken);
                     }
 
@@ -85,7 +87,7 @@ namespace DDNSService.Server.Services
                         {
                             data = new DnsAaaaRecordData
                             {
-                                TtlInSeconds = 3600
+                                TtlInSeconds = 300
                             };
                         }
 
@@ -97,6 +99,8 @@ namespace DDNSService.Server.Services
                             data.Metadata[Consts.LAST_UPDATE_TIME_KEY] = $"{DateTime.Now.ToMilliseconds()}";
                         else
                             data.Metadata.Add(Consts.LAST_UPDATE_TIME_KEY, $"{DateTime.Now.ToMilliseconds()}");
+                        if (!data.Metadata.TryGetValue(Consts.EXPIRATION_KEY, out string? _))
+                            data.Metadata.Add(Consts.EXPIRATION_KEY, "3600");
                         await aaaaRecords.CreateOrUpdateAsync(Azure.WaitUntil.Completed, name, data, cancellationToken: context.CancellationToken);
                     }
 

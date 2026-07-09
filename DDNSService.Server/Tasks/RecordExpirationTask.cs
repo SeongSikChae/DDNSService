@@ -23,20 +23,32 @@ namespace DDNSService.Server.Tasks
                 foreach (DnsARecordResource record in aRecords)
                 {
                     DnsARecordData data = record.Data;
-                    if (data.Metadata.TryGetValue(Consts.LAST_UPDATE_TIME_KEY, out string? lastUpdateTimeStr) && long.TryParse(lastUpdateTimeStr, out long lastUpdateTimeMillis))
+                    long? lastUpdateTimeMillis = null;
+                    if (data.Metadata.TryGetValue(Consts.LAST_UPDATE_TIME_KEY, out string? lastUpdateTimeStr))
                     {
-                        DateTime lastDateTime = lastUpdateTimeMillis.FromUnixTimeMilliseconds(DateTimeKind.Local);
-                        DateTime expirationTime;
-                        if (data.TtlInSeconds.HasValue)
-                            expirationTime = lastDateTime.Next(TimeGranularityUnit.SECONDS, (int) data.TtlInSeconds.Value);
-                        else
-                            expirationTime = DateTime.MaxValue;
-                        if (DateTime.Now > expirationTime)
-                        {
-                            await record.DeleteAsync(Azure.WaitUntil.Completed, cancellationToken: cancellationToken);
-                            logger.Information($"A Record : '{data.Name}' Expired.");
-                        }
+                        if (long.TryParse(lastUpdateTimeStr!, out var r))
+                            lastUpdateTimeMillis = r;
                     }
+
+                    int? expirationInSeconds = null;
+                    if (data.Metadata.TryGetValue(Consts.EXPIRATION_KEY, out string? expirationStr))
+                    {
+                        if (int.TryParse(expirationStr, out var r))
+                            expirationInSeconds = r;
+                    }
+
+                    DateTime lastUpdateTime = (lastUpdateTimeMillis ?? DateTime.MinValue.ToMilliseconds()).FromUnixTimeMilliseconds(DateTimeKind.Local);
+                    DateTime expirationTime;
+                    if (expirationInSeconds.HasValue)
+                        expirationTime = lastUpdateTime.Next(TimeGranularityUnit.SECONDS, expirationInSeconds.Value);
+                    else
+                        expirationTime = DateTime.MaxValue;
+
+                    if (DateTime.Now > expirationTime)
+                    {
+                        await record.DeleteAsync(Azure.WaitUntil.Completed, cancellationToken: cancellationToken);
+                        logger.Information($"A Record : '{data.Name}' Expired.");
+                    }                    
                 }
             }
 
@@ -45,19 +57,31 @@ namespace DDNSService.Server.Tasks
                 foreach (DnsAaaaRecordResource record in aaaaRecords)
                 {
                     DnsAaaaRecordData data = record.Data;
-                    if (data.Metadata.TryGetValue(Consts.LAST_UPDATE_TIME_KEY, out string? lastUpdateTimeStr) && long.TryParse(lastUpdateTimeStr, out long lastUpdateTimeMillis))
+                    long? lastUpdateTimeMillis = null;
+                    if (data.Metadata.TryGetValue(Consts.LAST_UPDATE_TIME_KEY, out string? lastUpdateTimeStr))
                     {
-                        DateTime lastDateTime = lastUpdateTimeMillis.FromUnixTimeMilliseconds(DateTimeKind.Local);
-                        DateTime expirationTime;
-                        if (data.TtlInSeconds.HasValue)
-                            expirationTime = lastDateTime.Next(TimeGranularityUnit.SECONDS, (int)data.TtlInSeconds.Value);
-                        else
-                            expirationTime = DateTime.MaxValue;
-                        if (DateTime.Now > expirationTime)
-                        {
-                            await record.DeleteAsync(Azure.WaitUntil.Completed, cancellationToken: cancellationToken);
-                            logger.Information($"AAAA Record : '{data.Name}' Expired.");
-                        }
+                        if (long.TryParse(lastUpdateTimeStr!, out var r))
+                            lastUpdateTimeMillis = r;
+                    }
+
+                    int? expirationInSeconds = null;
+                    if (data.Metadata.TryGetValue(Consts.EXPIRATION_KEY, out string? expirationStr))
+                    {
+                        if (int.TryParse(expirationStr, out var r))
+                            expirationInSeconds = r;
+                    }
+
+                    DateTime lastUpdateTime = (lastUpdateTimeMillis ?? DateTime.MinValue.ToMilliseconds()).FromUnixTimeMilliseconds(DateTimeKind.Local);
+                    DateTime expirationTime;
+                    if (expirationInSeconds.HasValue)
+                        expirationTime = lastUpdateTime.Next(TimeGranularityUnit.SECONDS, expirationInSeconds.Value);
+                    else
+                        expirationTime = DateTime.MaxValue;
+
+                    if (DateTime.Now > expirationTime)
+                    {
+                        await record.DeleteAsync(Azure.WaitUntil.Completed, cancellationToken: cancellationToken);
+                        logger.Information($"A Record : '{data.Name}' Expired.");
                     }
                 }
             }
