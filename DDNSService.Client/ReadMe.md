@@ -55,14 +55,14 @@ DDNSService.Client --config <설정파일경로> --log <로그디렉터리경로
 
 | 키 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `ContentRootPath` | string | 예 | 애플리케이션 콘텐츠 루트 경로 (인증서 경로 기준) |
+| `ContentRootPath` | string | 예 | 애플리케이션 콘텐츠 루트 경로 |
 | `Address` | string | 예 | 접속할 서버의 gRPC 주소 (예: `https://host:port`) |
-| `ClientCertificate` | string | 예 | 클라이언트 인증서(PKCS#12) 파일 경로 (`ContentRootPath` 기준 상대) |
-| `ClientCertificatePassword` | string | 예 | 클라이언트 인증서 비밀번호 |
+| `ClientCertificateThumbprint` | string | 예 | 클라이언트 인증서 지문. `CurrentUser\My` 저장소에서 개인키가 있는 인증서를 찾음 |
 
 ## 보안 / 통신
 
-- 시작 시 `ClientCertificate`(PKCS#12)를 로드합니다.
+- 시작 시 `CurrentUser\My` 저장소에서 `ClientCertificateThumbprint`로 개인키가 있는 인증서를 찾습니다. 없으면 기동을 중단합니다.
+  - `CurrentUser`는 프로세스 실행 계정의 저장소이므로, 서비스 실행 계정의 저장소에 인증서(개인키 포함)가 설치되어 있어야 합니다.
 - `HttpClientHandler`에 클라이언트 인증서를 추가하여 서버와 **상호 TLS(mTLS)** 연결을 수립합니다.
 - 해당 핸들러로 `GrpcChannel`을 생성하고 `DynamicDnsServiceClient`를 구성합니다.
 - 인증서는 서버 접속 인증 수단이자, 갱신 대상 식별 정보(`Id`, `Name`)의 출처로 함께 사용됩니다.
@@ -81,7 +81,7 @@ Serilog로 콘솔과 파일에 동시에 기록합니다.
 
 - `AddSystemd()`, `AddWindowsService()` — OS 서비스 통합
 - `Configuration` (싱글턴)
-- `X509Certificate2` — 로드한 클라이언트 인증서 (싱글턴)
+- `X509Certificate2` — 저장소에서 찾은 클라이언트 인증서 (싱글턴)
 - `GrpcChannel` 및 `DynamicDnsServiceClient` (싱글턴)
 - `ITaskScheduler` → `DefaultTaskScheduler` (싱글턴)
 - `DynamicDnsSyncTask` (싱글턴)

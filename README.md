@@ -114,8 +114,7 @@ dotnet build DDNSService.slnx
 ```yaml
 ContentRootPath: /opt/ddns/client
 Address: https://ddns.example.com:5001
-ClientCertificate: certs/client.pfx
-ClientCertificatePassword: your-client-cert-password
+ClientCertificateThumbprint: 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
 실행:
@@ -126,7 +125,7 @@ DDNSService.Client --config /opt/ddns/client/client.yaml --log /var/log/ddns/cli
 
 동작 흐름:
 
-1. `client.pfx` 인증서를 로드하고, 인증서의 Email Name → `Id`, Simple Name → `Name`으로 요청을 구성합니다.
+1. `CurrentUser\My` 저장소에서 지문으로 인증서를 찾고, 인증서의 Email Name → `Id`, Simple Name → `Name`으로 요청을 구성합니다.
 2. 시작 즉시 서버에 `Update`를 1회 호출한 뒤, 15분마다 반복 호출합니다.
 3. 결과 로그 예시:
 

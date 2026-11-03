@@ -40,10 +40,15 @@ namespace DDNSService.Client
 
         private static IHost CreateHostApplication(string[] args, CmdMain cmdMain, Configuration configuration)
         {
-            X509Certificate2 certificate = X509CertificateLoader.LoadPkcs12FromFile(
-                new FileInfo(Path.Combine(configuration.ContentRootPath, configuration.ClientCertificate)).FullName,
-                configuration.ClientCertificatePassword
-            );
+            X509Certificate2 certificate;
+            using (X509Store store = new X509Store(StoreName.My, StoreLocation.CurrentUser))
+            {
+                store.Open(OpenFlags.ReadOnly);
+                certificate = store.Certificates
+                    .Find(X509FindType.FindByThumbprint, configuration.ClientCertificateThumbprint, false)
+                    .FirstOrDefault(c => c.HasPrivateKey)
+                    ?? throw new InvalidOperationException($"CurrentUser\\My 저장소에서 개인키를 가진 인증서를 찾을 수 없습니다. Thumbprint={configuration.ClientCertificateThumbprint}");
+            }
 
             HostApplicationBuilder builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
             {
