@@ -164,6 +164,22 @@ namespace DDNSService.Server
                     configure.UseHttps(httpsOptions =>
                     {
                         httpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                        httpsOptions.ClientCertificateValidation = (clientCertificate, chain, errors) =>
+                        {
+                            if (errors != SslPolicyErrors.None)
+                            {
+                                ILogger<Program> logger = options.ApplicationServices.GetRequiredService<ILogger<Program>>();
+                                logger.LogWarning(
+                                    "클라이언트 인증서 검증 실패: Subject={Subject}, Thumbprint={Thumbprint}, Errors={Errors}, ChainStatus={ChainStatus}",
+                                    clientCertificate.Subject,
+                                    clientCertificate.Thumbprint,
+                                    errors,
+                                    chain is null ? "" : string.Join(", ", chain.ChainStatus.Select(status => $"{status.Status}:{status.StatusInformation.Trim()}"))
+                                );
+                            }
+
+                            return errors == SslPolicyErrors.None;
+                        };
                         httpsOptions.ServerCertificate = certificate;
 
                         if (configuration.CertificateChain is not null)
