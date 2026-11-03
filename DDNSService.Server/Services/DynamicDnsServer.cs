@@ -4,28 +4,48 @@ using Azure.ResourceManager.Resources;
 using DDNSService.Lib.Protos;
 using Grpc.Core;
 using System.Net;
+using System.Security.Cryptography.X509Certificates;
+using System.Text.RegularExpressions;
 
 namespace DDNSService.Server.Services
 {
     public sealed class DynamicDnsServer(Configuration configuration, ArmClient client, ILogger<DynamicDnsServer> logger) : DynamicDnsService.DynamicDnsServiceBase
     {
+        private static readonly Regex RecordNameRegex = new Regex("^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$", RegexOptions.Compiled);
+
         public override async Task<UpdateResponseProto> Update(UpdateRequestProto request, ServerCallContext context)
         {
-            if (!request.Name.EndsWith(configuration.AzureDns.DnsZoneName)) {
+            HttpContext httpContext = context.GetHttpContext();
+            X509Certificate2 clientCertificate = httpContext.Connection.ClientCertificate!;
+            string name = request.Name;
+
+            if (!RecordNameRegex.IsMatch(name))
+            {
+                logger.Warning($"REJECTED Invalid name. Thumbprint: '{clientCertificate.Thumbprint}', Name: '{name}'");
                 return new UpdateResponseProto
                 {
                     Error = true,
-                    Message = $"'{configuration.AzureDns.DnsZoneName}' 영역 내 만 지원합니다."
+                    Message = $"'{name}' 은(는) 올바른 레코드 이름이 아닙니다."
                 };
             }
 
-            string name = request.Name.Replace($".{configuration.AzureDns.DnsZoneName}", string.Empty);
+            bool allowed = configuration.AllowedClients.Any(allowedClient =>
+                string.Equals(allowedClient.Thumbprint, clientCertificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
+                && allowedClient.RecordNames.Contains(name, StringComparer.OrdinalIgnoreCase));
+            if (!allowed)
+            {
+                logger.Warning($"REJECTED Not allowed. Thumbprint: '{clientCertificate.Thumbprint}', Name: '{name}'");
+                return new UpdateResponseProto
+                {
+                    Error = true,
+                    Message = $"'{name}' 에 대한 갱신 권한이 없습니다."
+                };
+            }
 
             SubscriptionResource subscription = await client.GetSubscriptionResource(new Azure.Core.ResourceIdentifier(configuration.AzureDns.ResourceId)).GetAsync(context.CancellationToken);
             ResourceGroupResource resourceGroup = await subscription.GetResourceGroupAsync(configuration.AzureDns.ResourceGroupName, context.CancellationToken);
             DnsZoneResource dnsZone = await resourceGroup.GetDnsZoneAsync(configuration.AzureDns.DnsZoneName, context.CancellationToken);
 
-            HttpContext httpContext = context.GetHttpContext();
             IPAddress address = httpContext.Connection.RemoteIpAddress!;
             if (address.IsIPv4MappedToIPv6)
                 address = address.MapToIPv4();

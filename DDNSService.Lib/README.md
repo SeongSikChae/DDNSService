@@ -48,8 +48,8 @@ service DynamicDnsService {
 
 | 메시지 | 필드 | 설명 |
 | --- | --- | --- |
-| `UpdateRequestProto` | `id` | 요청 식별자 (클라이언트는 인증서의 Email 정보를 사용) |
-| | `name` | 갱신할 DNS 이름 (클라이언트는 인증서의 Simple Name을 사용) |
+| `UpdateRequestProto` | `id` | 요청 식별자 (클라이언트는 인증서의 Email 정보를 사용, 서버는 권한 판단에 쓰지 않음) |
+| | `name` | 갱신할 레코드 이름 prefix (예: `home`). 서버가 DNS 영역을 붙여 `home.<영역>`을 갱신 |
 | `UpdateResponseProto` | `error` | 처리 실패 여부 (`true`면 실패) |
 | | `message` | 처리 결과 메시지 |
 
@@ -82,7 +82,7 @@ public sealed class DynamicDnsServer : DynamicDnsService.DynamicDnsServiceBase
     public override async Task<UpdateResponseProto> Update(
         UpdateRequestProto request, ServerCallContext context)
     {
-        // request.Name / request.Id 를 사용해 DNS 레코드 반영
+        // TLS 클라이언트 인증서로 request.Name 갱신 권한 확인 후 DNS 레코드 반영
         return new UpdateResponseProto { Error = false, Message = "반영 완료" };
     }
 }
@@ -96,7 +96,7 @@ using DDNSService.Lib.Protos;
 UpdateRequestProto req = new UpdateRequestProto
 {
     Id = certificate.GetNameInfo(X509NameType.EmailName, false),
-    Name = certificate.GetNameInfo(X509NameType.SimpleName, false)
+    Name = configuration.RecordName
 };
 
 UpdateResponseProto res = await client.UpdateAsync(req, cancellationToken: cancellationToken);

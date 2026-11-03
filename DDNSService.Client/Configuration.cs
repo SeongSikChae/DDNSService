@@ -12,5 +12,8 @@ namespace DDNSService.Client
 
         [Property(PropertyType.STRING, required: true)]
         public string ClientCertificateThumbprint { get; set; } = null!;
+
+        [Property(PropertyType.STRING, required: true)]
+        public string RecordName { get; set; } = null!;
     }
 }

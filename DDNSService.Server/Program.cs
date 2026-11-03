@@ -169,7 +169,7 @@ namespace DDNSService.Server
                             if (errors != SslPolicyErrors.None)
                             {
                                 ILogger<Program> logger = options.ApplicationServices.GetRequiredService<ILogger<Program>>();
-                                logger.LogWarning(
+                                logger.Warning(
                                     "클라이언트 인증서 검증 실패: Subject={Subject}, Thumbprint={Thumbprint}, Errors={Errors}, ChainStatus={ChainStatus}",
                                     clientCertificate.Subject,
                                     clientCertificate.Thumbprint,

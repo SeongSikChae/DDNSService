@@ -46,9 +46,9 @@ Azure DNS를 활용한 **동적 DNS(DDNS) 서비스**입니다. 클라이언트�
 
 ### DDNSService.Client
 
-- 클라이언트 인증서에서 `Id`(Email Name)와 `Name`(Simple Name)을 추출해 `Update` 호출
+- 설정의 `RecordName`(레코드 이름 prefix)을 `Name`으로, 인증서 Email Name을 `Id`로 `Update` 호출
 - 시작 시 즉시 1회 실행 후, **15분 주기**로 반복 동기화
-- PKCS#12 인증서를 `HttpClientHandler`에 추가하여 서버와 mTLS 연결 수립
+- `CurrentUser\My` 저장소의 클라이언트 인증서를 `HttpClientHandler`에 추가하여 서버와 mTLS 연결 수립
 
 ## Azure DNS 구성 방법
 
@@ -115,6 +115,7 @@ dotnet build DDNSService.slnx
 ContentRootPath: /opt/ddns/client
 Address: https://ddns.example.com:5001
 ClientCertificateThumbprint: 0123456789ABCDEF0123456789ABCDEF01234567
+RecordName: home
 ```
 
 실행:
@@ -125,7 +126,7 @@ DDNSService.Client --config /opt/ddns/client/client.yaml --log /var/log/ddns/cli
 
 동작 흐름:
 
-1. `CurrentUser\My` 저장소에서 지문으로 인증서를 찾고, 인증서의 Email Name → `Id`, Simple Name → `Name`으로 요청을 구성합니다.
+1. `CurrentUser\My` 저장소에서 지문으로 인증서를 찾고, 인증서의 Email Name → `Id`, 설정의 `RecordName` → `Name`으로 요청을 구성합니다. 서버는 `home.example.com` 레코드를 갱신합니다.
 2. 시작 즉시 서버에 `Update`를 1회 호출한 뒤, 15분마다 반복 호출합니다.
 3. 결과 로그 예시:
 
@@ -154,6 +155,10 @@ IncludeCipherSuites: TLS_AES_256_GCM_SHA384, TLS_AES_128_GCM_SHA256
 Kms:
   DekFilePath: secrets/ddns-server.dek
   CredentialStore: gpg   # Linux systemd 헤드리스 예시. Windows는 생략
+AllowedClients:
+  - Thumbprint: 0123456789ABCDEF0123456789ABCDEF01234567   # 클라이언트 인증서 지문
+    RecordNames:
+      - home
 ```
 
 `ServerCertificatePassword`, `AzureDns.ClientSecret`을 평문으로 넣고 기동하면 서버가 암호화해 설정 파일을 다시 씁니다(주석은 사라집니다). 자세한 내용은 [DDNSService.Server README](DDNSService.Server/ReadMe.md)의 "설정 보안정보 암호화"를 참고하세요.

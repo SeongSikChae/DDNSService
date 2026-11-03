@@ -19,14 +19,14 @@
 
 ### 1. DNS 동기화 (`DynamicDnsSyncTask`)
 
-- 클라이언트 인증서에서 정보를 추출해 `UpdateRequestProto`를 구성합니다.
+- 다음 값으로 `UpdateRequestProto`를 구성합니다.
   - `Id` ← 인증서의 **Email Name**(`X509NameType.EmailName`)
-  - `Name` ← 인증서의 **Simple Name**(`X509NameType.SimpleName`)
+  - `Name` ← 설정의 **`RecordName`** (레코드 이름 prefix, 예: `home`)
 - gRPC `DynamicDnsService.Update`를 호출하고, 응답(`UpdateResponseProto`)의 결과에 따라 로그를 기록합니다.
   - `error == true` → 오류 로그
   - `error == false` → 정보 로그
 
-> 클라이언트는 IP를 직접 계산해 전송하지 않습니다. 서버가 gRPC 연결의 실제 원격 IP를 감지하므로, 클라이언트는 인증서 기반 식별 정보만 전달합니다.
+> 클라이언트는 IP를 직접 계산해 전송하지 않습니다. 서버가 gRPC 연결의 실제 원격 IP를 감지하므로, 클라이언트는 갱신할 레코드 이름만 전달합니다. 서버는 TLS 클라이언트 인증서 지문으로 해당 이름의 갱신 권한을 확인합니다.
 
 ### 2. 스케줄링 (`ClientHostedService`)
 
@@ -58,6 +58,7 @@ DDNSService.Client --config <설정파일경로> --log <로그디렉터리경로
 | `ContentRootPath` | string | 예 | 애플리케이션 콘텐츠 루트 경로 |
 | `Address` | string | 예 | 접속할 서버의 gRPC 주소 (예: `https://host:port`) |
 | `ClientCertificateThumbprint` | string | 예 | 클라이언트 인증서 지문. `CurrentUser\My` 저장소에서 개인키가 있는 인증서를 찾음 |
+| `RecordName` | string | 예 | 등록할 레코드 이름 prefix. 예: `home` → `home.<서버의 DnsZoneName>`. 서버 `AllowedClients`에 이 인증서 지문과 함께 등록되어 있어야 함 |
 
 ## 보안 / 통신
 
@@ -65,7 +66,7 @@ DDNSService.Client --config <설정파일경로> --log <로그디렉터리경로
   - `CurrentUser`는 프로세스 실행 계정의 저장소이므로, 서비스 실행 계정의 저장소에 인증서(개인키 포함)가 설치되어 있어야 합니다.
 - `HttpClientHandler`에 클라이언트 인증서를 추가하여 서버와 **상호 TLS(mTLS)** 연결을 수립합니다.
 - 해당 핸들러로 `GrpcChannel`을 생성하고 `DynamicDnsServiceClient`를 구성합니다.
-- 인증서는 서버 접속 인증 수단이자, 갱신 대상 식별 정보(`Id`, `Name`)의 출처로 함께 사용됩니다.
+- 인증서는 서버 접속 인증 수단이자, 서버가 갱신 권한을 판단하는 기준(지문)으로 사용됩니다.
 
 ## 로깅
 

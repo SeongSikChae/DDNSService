@@ -27,6 +27,8 @@ namespace DDNSService.Server
 
         public KmsConfiguration Kms { get; set; } = null!;
 
+        public List<AllowedClientConfiguration> AllowedClients { get; set; } = null!;
+
         public void Validate()
         {
             if (AzureDns is null)
@@ -36,7 +38,24 @@ namespace DDNSService.Server
             if (Kms is null)
                 throw new Exception("config field 'Kms' must be provided");
             ConfigurationValidator.Validate(Kms);
+
+            if (AllowedClients is null)
+                throw new Exception("config field 'AllowedClients' must be provided");
+            foreach (AllowedClientConfiguration allowedClient in AllowedClients)
+            {
+                ConfigurationValidator.Validate(allowedClient);
+                if (allowedClient.RecordNames is null || allowedClient.RecordNames.Count == 0)
+                    throw new Exception($"config field 'AllowedClients[{allowedClient.Thumbprint}].RecordNames' must be provided");
+            }
         }
+    }
+
+    public sealed class AllowedClientConfiguration
+    {
+        [Property(PropertyType.STRING, required: true)]
+        public string Thumbprint { get; set; } = null!;
+
+        public List<string> RecordNames { get; set; } = null!;
     }
 
     public sealed class AzureDnsConfiguration

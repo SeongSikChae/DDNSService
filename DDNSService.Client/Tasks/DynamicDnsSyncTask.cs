@@ -4,7 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace DDNSService.Client.Tasks
 {
-    internal class DynamicDnsSyncTask(X509Certificate2 certificate, DynamicDnsService.DynamicDnsServiceClient client, ILogger<DynamicDnsSyncTask> logger) : AsyncTask
+    internal class DynamicDnsSyncTask(Configuration configuration, X509Certificate2 certificate, DynamicDnsService.DynamicDnsServiceClient client, ILogger<DynamicDnsSyncTask> logger) : AsyncTask
     {
         public const string TASK_ID = "DynamicDnsSyncTask";
 
@@ -17,7 +17,7 @@ namespace DDNSService.Client.Tasks
             UpdateRequestProto req = new UpdateRequestProto
             {
                 Id = certificate.GetNameInfo(X509NameType.EmailName, false),
-                Name = certificate.GetNameInfo(X509NameType.SimpleName, false)
+                Name = configuration.RecordName
             };
 
             UpdateResponseProto res = await client.UpdateAsync(req, cancellationToken: cancellationToken);

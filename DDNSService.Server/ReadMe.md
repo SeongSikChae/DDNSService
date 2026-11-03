@@ -22,8 +22,8 @@
 
 클라이언트가 `DynamicDnsService.Update`를 호출하면 서버(`DynamicDnsServer`)는 다음을 수행합니다.
 
-1. 요청의 `Name`이 설정된 `AzureDns.DnsZoneName`으로 끝나는지 검증 (영역 밖이면 오류 반환)
-2. `Name`에서 존 이름을 제거해 레코드 이름을 계산
+1. 요청의 `Name`(레코드 이름 prefix, 예: `home`)이 DNS 레이블 규칙(영문·숫자·하이픈, 1~63자, 하이픈으로 시작·끝 불가)에 맞는지 검증 (아니면 오류 반환)
+2. **TLS 클라이언트 인증서 지문**이 `AllowedClients`에 있고 그 항목의 `RecordNames`에 `Name`이 포함되는지 확인 (대소문자 무시, 없으면 오류 반환). 요청의 `Id`는 권한 판단에 쓰지 않습니다.
 3. **gRPC 연결의 원격 IP 주소**를 확인 (IPv4-mapped IPv6는 IPv4로 변환)
    - IPv4 → **A 레코드** 생성/갱신
    - IPv6 → **AAAA 레코드** 생성/갱신
@@ -80,6 +80,24 @@ DDNSService.Server --config <설정파일경로> --log <로그디렉터리경로
 | `CertificateChain` | string | 아니오 | 전송할 인증서 체인 이름 목록(쉼표 구분) |
 | `IncludeCipherSuites` | string | 아니오 | 허용할 TLS Cipher Suite 목록(쉼표 구분) |
 | `Kms` | object | 예 | 설정 보안정보 암호화 설정 (아래 표) |
+| `AllowedClients` | list | 예 | 클라이언트 인증서별 갱신 허용 레코드 목록 (아래 표). 비어 있으면(`[]`) 모든 요청 거부 |
+
+`AllowedClients` 항목
+
+| 키 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `Thumbprint` | string | 예 | 클라이언트 인증서 지문. 인증서를 갱신하면 함께 바꿔야 함 |
+| `RecordNames` | string list | 예 | 이 인증서가 갱신할 수 있는 레코드 이름 prefix 목록 (1개 이상) |
+
+```yaml
+AllowedClients:
+  - Thumbprint: 0123456789ABCDEF0123456789ABCDEF01234567
+    RecordNames:
+      - home
+      - nas
+```
+
+`AllowedClients` 변경은 서버 재기동 후 반영됩니다.
 
 `AzureDns` 섹션
 
