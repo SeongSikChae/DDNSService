@@ -14,8 +14,8 @@ Azure DNS를 활용한 **동적 DNS(DDNS) 서비스**입니다. 클라이언트�
 
 ```
 ┌─────────────────────┐        gRPC over mTLS         ┌─────────────────────┐        Azure SDK        ┌──────────────┐
-│  DDNSService.Client │ ───────────────────────────▶  │  DDNSService.Server │ ──────────────────────▶ │  Azure DNS   │
-│  (인증서로 식별 요청)│        Update(RPC)            │  (원격 IP → 레코드)  │   A/AAAA 레코드 갱신    │   Zone       │
+│  DDNSService.Client │ ───────────────────────────▶ │  DDNSService.Server │ ──────────────────────▶ │  Azure DNS   │
+│  (인증서로 식별 요청) │        Update(RPC)            │  (원격 IP → 레코드)  │   A/AAAA 레코드 갱신     │   Zone       │
 └─────────────────────┘                               └─────────────────────┘                         └──────────────┘
              \                                                   /
               \             DDNSService.Lib (공유 계약/공통 기반)  /
@@ -42,6 +42,7 @@ Azure DNS를 활용한 **동적 DNS(DDNS) 서비스**입니다. 클라이언트�
 - `RecordExpirationTask`가 30분마다 실행되어, 마지막 갱신 후 만료시간 이상 경과한 레코드를 삭제
 - Kestrel HTTPS: HTTP/2·HTTP/3, TLS 1.2/1.3, **클라이언트 인증서 필수(mTLS)**, 인증서 체인·Cipher Suite 설정 지원
 - Azure 인증은 `ClientSecretCredential`(Tenant/Client/Secret) 기반 `ArmClient` 사용
+- 설정의 `ServerCertificatePassword`, `AzureDns.ClientSecret`은 기동 시 `Biz.Bizadm.KMS`(OS 자격 증명 금고 KEK + 로컬 DEK)로 암호화·복호화
 
 ### DDNSService.Client
 
@@ -62,8 +63,8 @@ Azure DNS를 활용한 **동적 DNS(DDNS) 서비스**입니다. 클라이언트�
 9. **역할 할당** 탭에서 **추가** 버튼을 클릭하여 역할 할당을 추가합니다. 작업 기능 역할은 **Reader(독자)**로 지정하고, 구성원은 **사용자, 그룹 또는 서비스 주체**를 선택한 뒤 **구성원 선택**을 눌러 Application 이름을 검색하여 선택하고 할당합니다.
 10. **DNS 영역**으로 돌아와서 **액세스 제어(IAM)** 메뉴로 이동합니다.
 11. 역할에서 **DNS 영역 참가자**를 검색하여 선택하고, 구성원은 9번과 마찬가지로 Application 이름을 검색하여 선택하고 할당합니다.
-12. Microsoft Entra 관리 센터에서 등록한 앱 **개요**의 **디렉터리(테넌트) ID**, **애플리케이션(클라이언트) ID**, **클라이언트 비밀 등록 시 생성된 값**을 `DDNSService.Server` 설정 파일에 등록합니다. (각각 `TenantId`, `ClientId`, `ClientSecret`에 해당)
-13. Azure Portal 구독에서 **구독 ID**를 서버 설정 `ResourceId`에 `/subscriptions/구독 ID` 형식으로, DNS 영역이 위치한 **리소스 그룹 이름**을 `ResourceGroupName`으로, **DNS 명칭**을 `DnsZoneName`으로 지정합니다.
+12. Microsoft Entra 관리 센터에서 등록한 앱 **개요**의 **디렉터리(테넌트) ID**, **애플리케이션(클라이언트) ID**, **클라이언트 비밀 등록 시 생성된 값**을 `DDNSService.Server` 설정 파일에 등록합니다. (각각 `AzureDns.TenantId`, `AzureDns.ClientId`, `AzureDns.ClientSecret`에 해당. `ClientSecret`은 평문으로 넣으면 서버 기동 시 암호화되어 저장됩니다.)
+13. Azure Portal 구독에서 **구독 ID**를 서버 설정 `AzureDns.ResourceId`에 `/subscriptions/구독 ID` 형식으로, DNS 영역이 위치한 **리소스 그룹 이름**을 `AzureDns.ResourceGroupName`으로, **DNS 명칭**을 `AzureDns.DnsZoneName`으로 지정합니다.
 
 ## 실행 방법
 
@@ -140,17 +141,23 @@ DDNSService.Client --config /opt/ddns/client/client.yaml --log /var/log/ddns/cli
 ```yaml
 ContentRootPath: /opt/ddns/server
 Port: 5001
-TenantId: 00000000-0000-0000-0000-000000000000
-ClientId: 11111111-1111-1111-1111-111111111111
-ClientSecret: your-azure-client-secret
-ResourceId: /subscriptions/22222222-2222-2222-2222-222222222222
-ResourceGroupName: my-dns-rg
-DnsZoneName: example.com
+AzureDns:
+  TenantId: 00000000-0000-0000-0000-000000000000
+  ClientId: 11111111-1111-1111-1111-111111111111
+  ClientSecret: your-azure-client-secret          # 기동 시 DEKENC:... 로 암호화
+  ResourceId: /subscriptions/22222222-2222-2222-2222-222222222222
+  ResourceGroupName: my-dns-rg
+  DnsZoneName: example.com
 ServerCertificate: certs/server.pfx
-ServerCertificatePassword: your-server-cert-password
+ServerCertificatePassword: your-server-cert-password   # 기동 시 DEKENC:... 로 암호화
 CertificateChain: Intermediate CA, Root CA
 IncludeCipherSuites: TLS_AES_256_GCM_SHA384, TLS_AES_128_GCM_SHA256
+Kms:
+  DekFilePath: secrets/ddns-server.dek
+  CredentialStore: gpg   # Linux systemd 헤드리스 예시. Windows는 생략
 ```
+
+`ServerCertificatePassword`, `AzureDns.ClientSecret`을 평문으로 넣고 기동하면 서버가 암호화해 설정 파일을 다시 씁니다(주석은 사라집니다). 자세한 내용은 [DDNSService.Server README](DDNSService.Server/ReadMe.md)의 "설정 보안정보 암호화"를 참고하세요.
 
 실행:
 

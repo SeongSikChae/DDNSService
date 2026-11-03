@@ -10,6 +10,8 @@
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.ResourceManager.Dns" Version="1.1.1" />
+    <PackageReference Include="Biz.Bizadm.KMS" Version="1.0.6" />
+    <PackageReference Include="Biz.Bizadm.KMS.Credentials" Version="1.0.2" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.80.0" />
   </ItemGroup>
 

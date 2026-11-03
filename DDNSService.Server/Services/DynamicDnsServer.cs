@@ -11,19 +11,19 @@ namespace DDNSService.Server.Services
     {
         public override async Task<UpdateResponseProto> Update(UpdateRequestProto request, ServerCallContext context)
         {
-            if (!request.Name.EndsWith(configuration.DnsZoneName)) {
+            if (!request.Name.EndsWith(configuration.AzureDns.DnsZoneName)) {
                 return new UpdateResponseProto
                 {
                     Error = true,
-                    Message = $"'{configuration.DnsZoneName}' 영역 내 만 지원합니다."
+                    Message = $"'{configuration.AzureDns.DnsZoneName}' 영역 내 만 지원합니다."
                 };
             }
 
-            string name = request.Name.Replace($".{configuration.DnsZoneName}", string.Empty);
+            string name = request.Name.Replace($".{configuration.AzureDns.DnsZoneName}", string.Empty);
 
-            SubscriptionResource subscription = await client.GetSubscriptionResource(new Azure.Core.ResourceIdentifier(configuration.ResourceId)).GetAsync(context.CancellationToken);
-            ResourceGroupResource resourceGroup = await subscription.GetResourceGroupAsync(configuration.ResourceGroupName, context.CancellationToken);
-            DnsZoneResource dnsZone = await resourceGroup.GetDnsZoneAsync(configuration.DnsZoneName, context.CancellationToken);
+            SubscriptionResource subscription = await client.GetSubscriptionResource(new Azure.Core.ResourceIdentifier(configuration.AzureDns.ResourceId)).GetAsync(context.CancellationToken);
+            ResourceGroupResource resourceGroup = await subscription.GetResourceGroupAsync(configuration.AzureDns.ResourceGroupName, context.CancellationToken);
+            DnsZoneResource dnsZone = await resourceGroup.GetDnsZoneAsync(configuration.AzureDns.DnsZoneName, context.CancellationToken);
 
             HttpContext httpContext = context.GetHttpContext();
             IPAddress address = httpContext.Connection.RemoteIpAddress!;

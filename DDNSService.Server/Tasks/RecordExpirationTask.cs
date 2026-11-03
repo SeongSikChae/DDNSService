@@ -14,9 +14,9 @@ namespace DDNSService.Server.Tasks
 
         public override async Task RunAsync(CancellationToken cancellationToken)
         {
-            SubscriptionResource subscription = await client.GetSubscriptionResource(new Azure.Core.ResourceIdentifier(configuration.ResourceId)).GetAsync(cancellationToken);
-            ResourceGroupResource resourceGroup = await subscription.GetResourceGroupAsync(configuration.ResourceGroupName, cancellationToken);
-            DnsZoneResource dnsZone = await resourceGroup.GetDnsZoneAsync(configuration.DnsZoneName, cancellationToken);
+            SubscriptionResource subscription = await client.GetSubscriptionResource(new Azure.Core.ResourceIdentifier(configuration.AzureDns.ResourceId)).GetAsync(cancellationToken);
+            ResourceGroupResource resourceGroup = await subscription.GetResourceGroupAsync(configuration.AzureDns.ResourceGroupName, cancellationToken);
+            DnsZoneResource dnsZone = await resourceGroup.GetDnsZoneAsync(configuration.AzureDns.DnsZoneName, cancellationToken);
 
             {
                 DnsARecordCollection aRecords = dnsZone.GetDnsARecords();

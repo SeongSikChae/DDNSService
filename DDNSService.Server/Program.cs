@@ -1,5 +1,7 @@
 ﻿using Azure.Identity;
 using Azure.ResourceManager;
+using Biz.Bizadm.KMS.Cipher;
+using Biz.Bizadm.KMS.Credentials.Cipher;
 using CommandLine;
 using DDNSService.Server.Services;
 using DDNSService.Server.Tasks;
@@ -9,8 +11,11 @@ using Serilog;
 using Serilog.Configuration;
 using System.Configuration;
 using System.Net.Security;
+using System.Security.AccessControl;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using YamlDotNet.Serialization;
 
 namespace DDNSService.Server
 {
@@ -35,9 +40,88 @@ namespace DDNSService.Server
                     string str = File.ReadAllText(configFileInfo.FullName);
                     Configuration? configuration = deserializer.Deserialize<Configuration>(str);
                     ConfigurationValidator.Validate(configuration);
+                    ProtectSecrets(configFileInfo, configuration);
                     WebApplication app = CreateWebApplication(args, cmdMain, configuration);
                     await StartAsync(app, cmdMain, configuration);
                 });
+        }
+
+        private static void ProtectSecrets(FileInfo configFileInfo, Configuration configuration)
+        {
+            bool rewrite = false;
+
+            if (!string.IsNullOrWhiteSpace(configuration.Kms.CredentialStore))
+                Environment.SetEnvironmentVariable("GCM_CREDENTIAL_STORE", configuration.Kms.CredentialStore);
+
+            FileInfo dekFileInfo = new FileInfo(Path.Combine(configuration.ContentRootPath, configuration.Kms.DekFilePath));
+
+            IOsKekCredentialStore credentialStore = OsKekCredentialProvider.CreateForCurrentOs(Consts.KMS_KEK_SERVICE, Consts.KMS_KEK_ACCOUNT);
+            try
+            {
+                CryptographicOperations.ZeroMemory(credentialStore.GetPassword());
+            }
+            catch (InvalidOperationException e) when (e.Message.StartsWith("KEK credential not found", StringComparison.Ordinal))
+            {
+                if (dekFileInfo.Exists)
+                    throw new InvalidOperationException($"KEK credential not found but DEK file exists: {dekFileInfo.FullName}", e);
+
+                byte[] password = RandomNumberGenerator.GetBytes(32);
+                credentialStore.StorePassword(password);
+                CryptographicOperations.ZeroMemory(password);
+            }
+
+            if (string.IsNullOrWhiteSpace(configuration.Kms.KekSalt))
+            {
+                configuration.Kms.KekSalt = Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
+                WriteConfiguration(configFileInfo, configuration);
+            }
+
+            using AesGcmKekManager kekManager = AesGcmKekManager.Create(credentialStore, Convert.FromBase64String(configuration.Kms.KekSalt), configuration.Kms.KekIterations!.Value);
+            using AesGcmDekCipher dekCipher = AesGcmDekCipher.Create(kekManager.Current, dekFileInfo);
+            using DekCipherService dekCipherService = new DekCipherService(dekCipher, leaveOpen: true);
+
+            string EncryptIfNeeded(string value)
+            {
+                if (dekCipherService.StartsWithFromPrefix(value))
+                    return value;
+                rewrite = true;
+                return dekCipherService.Encrypt(value);
+            }
+
+            configuration.ServerCertificatePassword = EncryptIfNeeded(configuration.ServerCertificatePassword);
+            configuration.AzureDns.ClientSecret = EncryptIfNeeded(configuration.AzureDns.ClientSecret);
+
+            if (rewrite)
+                WriteConfiguration(configFileInfo, configuration);
+
+            configuration.ServerCertificatePassword = dekCipherService.Decrypt(configuration.ServerCertificatePassword);
+            configuration.AzureDns.ClientSecret = dekCipherService.Decrypt(configuration.AzureDns.ClientSecret);
+        }
+
+        private static void WriteConfiguration(FileInfo configFileInfo, Configuration configuration)
+        {
+            ISerializer serializer = new SerializerBuilder()
+                .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
+                .Build();
+            string tempFilePath = configFileInfo.FullName + ".tmp";
+            try
+            {
+                File.WriteAllText(tempFilePath, serializer.Serialize(configuration));
+                if (OperatingSystem.IsWindows())
+                {
+                    FileSecurity security = new FileSecurity();
+                    security.SetSecurityDescriptorBinaryForm(configFileInfo.GetAccessControl().GetSecurityDescriptorBinaryForm(), AccessControlSections.Access);
+                    new FileInfo(tempFilePath).SetAccessControl(security);
+                }
+                else
+                    File.SetUnixFileMode(tempFilePath, File.GetUnixFileMode(configFileInfo.FullName));
+                File.Move(tempFilePath, configFileInfo.FullName, overwrite: true);
+            }
+            catch
+            {
+                File.Delete(tempFilePath);
+                throw;
+            }
         }
 
         private static WebApplication CreateWebApplication(string[] args, CmdMain cmdMain, Configuration configuration)
@@ -148,7 +232,7 @@ namespace DDNSService.Server
             builder.Services.AddSingleton<ITaskScheduler, DefaultTaskScheduler>();
             builder.Services.AddSingleton<RecordExpirationTask>();
 
-            ClientSecretCredential credential = new ClientSecretCredential(configuration.TenantId, configuration.ClientId, configuration.ClientSecret);
+            ClientSecretCredential credential = new ClientSecretCredential(configuration.AzureDns.TenantId, configuration.AzureDns.ClientId, configuration.AzureDns.ClientSecret);
             ArmClient client = new ArmClient(credential);
             builder.Services.AddSingleton(client);
 
